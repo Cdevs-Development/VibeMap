@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /downloads/
+Allow: /privacy
+Allow: /terms
+Allow: /report-vibe
+
+# Disallow private user-specific endpoints from crawl budget waste
+Disallow: /profile
+Disallow: /add-beneficiary
+Disallow: /manage-beneficiaries
+Disallow: /sos-active
+Disallow: /api/
+
+Sitemap: https://www.vibemap.tech/sitemap.xml

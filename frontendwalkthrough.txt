@@ -1,0 +1,265 @@
+# Developer Walkthrough - Authentication & Onboarding Funnel Configuration
+
+This document outlines the authentication architecture, route configuration, and database/WebGL troubleshooting setups implemented for other developers on the team.
+
+---
+
+## 1. Backend Configuration & Dependencies
+
+To ensure the FastAPI backend runs correctly on local environments, the following changes were applied:
+
+*   **Pydantic Email Validation**: Added and pinned `email-validator==2.3.0` in `backend/requirements.txt` to satisfy FastAPI/Pydantic email schema validation requirements.
+*   **Password Hashing Compatibility Bug**: Downgraded and pinned `bcrypt==4.0.1` in `backend/requirements.txt` (previously installed as `5.0.0` globally). This resolves the `ValueError: password cannot be longer than 72 bytes` crash which occurs due to an incompatibility between `passlib` and newer versions of `bcrypt`.
+*   **CORS Configuration**: Enabled CORS middleware in `backend/app/main.py` to allow browser cross-origin requests from the React frontend (running on Vite dev ports):
+    ```python
+    from fastapi.middleware.cors import CORSMiddleware
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    ```
+*   **Database Credentials**: The local database credentials in `backend/.env` have been updated to target the correct local credentials (`root` user with password `09155564452` on port `3306`).
+
+---
+
+## 2. Frontend Onboarding Routing Flow
+
+The onboarding routing flow is configured to guide newly registered users to set up emergency contacts before taking them to the map interface:
+
+```mermaid
+graph TD
+    A[Sign Up / Register] -- Navigates to --> B[OTP Verification Screen]
+    B -- 1s Simulated Delay --> C[Add Beneficiary / Onboarding]
+    C -- Save & Continue --> D[Map Dashboard Screen]
+```
+
+### Flow Breakdown:
+1.  **Register (`/register`)**:
+    *   Collects name, email, phone number, and password.
+    *   Submits the payload to the backend and navigates the user to `/verify`.
+2.  **Verify OTP (`/verify`)**:
+    *   Uses a **1-second simulated delay** upon submit.
+    *   After the delay, it redirects the user to `/onboarding` (Add Emergency Contact screen) so they configure contacts immediately.
+3.  **Onboarding / Add Emergency Contact (`/onboarding`)**:
+    *   Enables the user to add emergency contacts.
+    *   Clicking **Save & Continue** saves contacts to the backend and routes them directly to `/map`.
+    *   The `/onboarding` route in `App.jsx` is unprotected for easy developer testing.
+4.  **Login (`/login`)**:
+    *   Existing users sign in with phone and password, acquire their JWT token, and go directly to the `/map` dashboard.
+
+---
+
+## 3. Local Environment Setup Checklist (For Other Developers)
+
+To run both backend and frontend applications successfully on any local development system, follow these initialization steps:
+
+### A. Database Initialization
+1.  Ensure MySQL / MariaDB is running locally on port `3306`.
+2.  Import the SQL schema file `vibemap.sql` located in the root of the project to create the `vibemap` database and all required tables:
+    ```bash
+    mysql -u root -p < vibemap.sql
+    ```
+
+### B. Backend Environment Config
+1.  Ensure Python 3.12+ (or 3.13+) is installed.
+2.  Navigate to `backend/` and install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  Configure `backend/.env`:
+    ```env
+    DATABASE_URL=mysql+pymysql://<user>:<password>@localhost:3306/vibemap
+    SECRET_KEY=vibemap_secret_key_change_this_in_production
+    ALGORITHM=HS256
+    ACCESS_TOKEN_EXPIRE_MINUTES=1440
+    ```
+4.  Run the API server:
+    ```bash
+    python -m uvicorn app.main:app --reload
+    ```
+
+### C. Frontend Environment Config
+1.  Navigate to the root directory and install dependencies:
+    ```bash
+    npm install
+    ```
+2.  Ensure `.env` is present in the root:
+    ```env
+    VITE_MAPTILER_KEY=[Maptiler API key]
+    VITE_API_BASE_URL=[Your Backend URL]
+    VITE_SOCKET_URL=[Your Backend URL]
+    ```
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+
+---
+
+## 4. Map Dashboard WebGL Capability Check
+
+MapLibre GL JS relies heavily on hardware graphics acceleration (WebGL) to render layers. If a developer or user is running the app in a virtualized, driver-disabled, or sandbox environment, MapLibre will crash.
+
+*   **Detection Function**: In `MapScreen.jsx`, we check browser context support manually:
+    ```javascript
+    function isWebglSupported() {
+      try {
+        const canvas = document.createElement('canvas');
+        return !!(window.WebGLRenderingContext && 
+                 (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+      } catch (e) {
+        return false;
+      }
+    }
+    ```
+*   **Graceful Fallback**: If `isWebglSupported()` returns false, the application will bypass MapLibre initialization and display a **WebGL Required** troubleshooting card. This card guides the user through enabling hardware acceleration in their browser settings instead of crashing the page.
+
+---
+
+## 5. Bottom Navigation Expansion & Family Map Integration
+
+The primary floating bottom navigation has been expanded from 3 to 4 tabs to accommodate the new "Family Map" tracking feature while preserving emergency response accessibility.
+
+### A. Bottom Navigation Layout & Sequence
+The tabs are centered, evenly spaced using Flexbox (`justify-content: space-around`), and configured in the following sequence:
+1.  **Map** (🗺️) - Main active view.
+2.  **Family** (👨‍👩‍👧) - [NEW] Opens the Family Map tracking dashboard.
+3.  **Vibes** (💜) - Navigates to crowdsourced hazard reporting.
+4.  **Profile** (👤) - User configuration settings.
+
+Each navigation tab uses shrunken, thumb-accessible button padding (`6px 10px`) to prevent layout wrapping on narrow mobile screens.
+
+### B. View Transition & Battery Optimization (Canvas Pause)
+To preserve battery life on emergency devices and prevent background WebGL rendering load, we implement conditional mounting:
+*   When `activeTab === 'map'`, the main Map component is mounted.
+*   When `activeTab === 'family'`, the main Map component is completely unmounted, clearing its graphics canvas, and the `FamilyMap` component is mounted instead.
+
+### C. Embedded Layout Scaling in `FamilyMap`
+The `FamilyMap` component supports an `isEmbedded={true}` mode. When running as a tab within the dashboard:
+*   The standalone back button `←` and top header title are hidden.
+*   The tracking toggle and horizontal member list strip are positioned below the search bar (`top: 88px` offset).
+*   The SOS Warning Alert banner is shifted down to avoid overlapping.
+
+### D. Untouched Floating UI Overlays & Conditional Tab Visibility
+To preserve high-speed access:
+*   The **SOS Button** remains floating in the bottom-right corner, absolutely positioned, and accessible instantly on top of any active tab view.
+*   The **Top Search Bar** and the **Telemetry Debug Panel** remain anchored exactly where they are.
+*   The **POI Toggle Controls** and the **Report Vibe Button** are conditionally hidden when `activeTab === 'family'` to maintain an emergency clean view. The SOS button's flex justification shifts to `flex-end` under this state to stay correctly aligned on the right.
+
+---
+
+## 6. UI Bug Squashing & Responsive Layout Alignment
+
+The following critical UI, routing, and styling fixes were implemented to align navigation and optimize layout structures across screens:
+
+### A. ProfileScreen Navigation & Routing Fixes
+*   **Redirect Bug**: Corrected the click handler in the primary bottom navigation of `ProfileScreen.tsx` to route the "Map" icon explicitly to `/map` (active route) instead of `/` (which was triggering a redirection to `/login`).
+*   **Tab Integration**: Wired up the rest of the tab routes (`/family`, `/report-vibe`) inside `ProfileScreen.tsx`'s bottom navigation component.
+
+### B. Scroll Lock & Responsive Layout Dashboard
+*   **Scroll Capability**: Changed the main container of `ProfileScreen.tsx` from `min-height: 100vh` to a dynamic `height: 100dvh` and added `overflowY: 'auto'` to ensure the screen content scrolls independently inside locked viewports.
+*   **Desktop Responsive Grid**: Added media queries and CSS grid rules that reorganize the profile sections into a gorgeous two-column dashboard on screens wider than `768px`:
+    *   **Left Column**: Stacked card panels for Identity (Avatar/Name/Phone), Safety settings (Location Sharing, Manage Beneficiaries, SOS PIN), and Account controls.
+    *   **Right Column**: Multi-tab Activity list for Vibes and Trips, utilizing the screen width cleanly.
+    *   **Max-Width Lock**: Locked the page to a centered `1024px` on desktop (and standard `480px` centered width on mobile viewports).
+
+### C. MapLibre Popup Overrides & Dark Theme Integration
+*   **Popup Styling Overrides**: Solved the default MapLibre white background bleeding behind the custom dark theme popups. We added global CSS overrides in `src/index.css` and `FamilyMap.jsx` to:
+    *   Set `.maplibregl-popup-content` background to `transparent`, remove default padding, and strip box shadows.
+    *   Align `.maplibregl-popup-tip` borders to match the container's dark background (`rgba(12, 12, 20, 0.98)`).
+*   **Popup Instantiation & Close Controls**:
+    *   Enabled the default MapLibre close button initialization via `closeButton: true` (or `closeButton={true}` in React Map GL).
+    *   Suppressed default browser close buttons (`display: none` for `.maplibregl-popup-close-button`) and designed a custom interactive "X" close button inside the custom modal card wrapper in `FamilyMap.jsx`, calling `setSelectedPerson(null)` when clicked to dismiss the popup gracefully.
+
+### D. Unified Centered Bottom Navigation Dock
+*   **Dock Centering**: Aligned the bottom navigation bars across `ProfileScreen.tsx` and `MapScreen.jsx` so that on desktop screens, the dock is centered and locked to a maximum width of `380px` (instead of stretching full-screen).
+*   **FamilyMap Tab Navigation**: Added the identical bottom navigation bar to `FamilyMap.jsx` when it is loaded standalone (`isEmbedded={false}`), allowing the user to navigate back to other application areas.
+
+---
+
+## 7. Viewport height (dvh) Stabilization & Compact Styling Controls
+
+To align with strict mobile-first guidelines and optimize touch interfaces under variable browser heights, the following optimizations were applied:
+
+### A. Dynamic Viewport Heights (`100dvh`)
+Replaced standard viewport heights (`100vh`) with dynamic viewport heights (`100dvh`) across all primary screen components to prevent collapsible mobile browser address bars from shifting bottom-aligned elements. Affected pages:
+*   `MapScreen.jsx` (VibeMap Canvas)
+*   `FamilyMap.jsx`
+*   `ProfileScreen.tsx`
+*   `SOSActive.jsx`
+*   `ManageBeneficiaries.jsx`
+*   `AddBeneficiary.jsx`
+*   `Register.jsx`
+*   `OTPVerify.jsx`
+*   `Login.jsx`
+
+### B. Compact Sizing & Responsive Scaling Adjustments
+Redimensioned overlay widgets using global CSS variables in `index.css` to allow for automatic scaling across viewports:
+*   **POI Layers Tab**: Shrink toggle buttons from `48px` to `36px`, reduce icon fonts to `14px`, reduce gap spacing to `6px`, and reduce inner padding on mobile. Scales back up to full size (`48px` buttons, `18px` icons) automatically on wider screens (e.g. Surface Pro, desktop) wider than `768px`.
+*   **Report Vibe Button**: Shrunk from full-height to a compact pill size (`padding: 10px 18px`, `fontSize: 12px`, `minHeight: 40px`).
+*   **VibeMap Logo Headers**: Scaled logo text sizes from `22px` to `18px` (in `MapScreen.jsx`) and standalone page headers from `16px` to `14px` (in `FamilyMap.jsx`).
+*   **Bottom Navigation Bar**: Scaled down height from `76px` to `60px` on mobile (and scales up to `72px` and `460px` max-width on screens wider than `768px`), shrinking button pads from `48px` to `40px` (`min-width`/`min-height`), emoji fonts to `16px`, and tab label font size to `9.5px` across all main templates while maintaining full touch target safety.
+
+---
+
+## 8. Full-Stack Profile Screen Data Integration & Beneficiary CRUD UI
+
+We finalized the integration of the React `ProfileScreen.tsx` with the FastAPI backend and implemented emergency contacts (beneficiaries) CRUD management.
+
+### A. Backend Audit & Feature Decoupling
+* Checked backend schemas (`trip_schema.py`) and database models (`trip.py`). The database lacks `start_location_name` and `end_location_name` columns.
+* Decoupled the Trip History location names section from the frontend to enforce the requirement that the frontend should not reverse-geocode coordinate history arrays.
+
+### B. Concurrent Data Fetching
+* Added a `useEffect` hook that fires concurrent FastAPI requests to:
+  * `/auth/me` for user profile details (mapped to name, phone, and email).
+  * `/beneficiaries/` for the emergency contact list.
+  * `/vibe-pins/` to retrieve and client-side filter Crowdsourced Vibe Reports submitted by this user.
+* Implemented unified Loading state screens and an Error Screen containing a **Retry** button for failure handling.
+
+### C. Beneficiary CRUD Implementation
+* **Optimistic UI updates:** Adding, updating, and deleting emergency contacts immediately reflects in the React state hook `const [beneficiaries, setBeneficiaries] = useState([])` upon a `200`/`201` response.
+* **Layout Design:** Added a vertical list section under a "Manage Family & Contacts" label. Each item renders as a row with:
+  * Initials badge fallback and status indicators (**Active** for confirmed contacts and **Pending** for unconfirmed ones).
+  * **✏️ (Edit)** and **🗑️ (Delete)** actions with a minimum touch-safe tap target of `48x48px`.
+  * A prominent, full-width dashed **+ Add Beneficiary** button at the bottom of the list.
+*   **Inline Modals:** Reused the slide-up modal bottom-sheet component to manage forms. Double-checked delete operations using a custom confirmation dialog.
+
+---
+
+## 9. Account Settings Modal & Deactivation Flow
+
+We integrated backend endpoints for user profile edits and permanent account deactivation.
+
+*   **API Service wrappers**: Added `updateProfile` (`PUT /auth/me`) and `deactivateAccount` (`DELETE /auth/me`) wrappers to `api.js`.
+*   **Clutter-Free Modal Migration**: Removed the inline edit form from the main screen grid. Instead, clicking the `✏️ Edit` button in the header opens a centered `Modal` dialog allowing users to edit their **Full Name**, **Email Address**, and upload an **Avatar** in one unified place.
+*   **Session Isolation & Security**: Fixed a session leakage bug where logging out and logging in as a new user would display the previous user's name/phone. We achieved this by:
+    *   Relying strictly on the database payload returned by `/auth/me` for profile details.
+    *   Omiting name and phone caching in `localStorage`.
+    *   Scoping all remaining local settings keys by the user's ID: `vibemap_${user_id}_avatar`, `vibemap_${user_id}_location_sharing`, and `vibemap_${user_id}_sos_pin`.
+*   **High-Friction Deactivation Modal**: Standardized a deactivation flow where the deactivation action requires typing the word `DELETE` into a text field to enable the confirm button. On confirmation, the credentials and user-scoped data are cleared from `localStorage` followed by a hard-redirect via `window.location.href = '/login'`.
+
+---
+
+## 10. Standardized Action Buttons
+
+We audited all primary buttons (modal controls, location toggle, SOS PIN, logout, deactivation, and retry buttons) to apply consistent touch behaviors:
+*   **Anti-Highlighting**: Added `user-select: none` and `-webkit-tap-highlight-color: transparent` to prevent selection highlighting on double-taps.
+*   **Instant Tap Action**: Added `touch-action: manipulation` to bypass browser-specific 300ms click delay.
+*   **Centered Alignment**: Embedded flexbox centering properties (`display: inline-flex; align-items: center; justify-content: center;`).
+*   **Tactile Feedback**: Integrated scale animation on click (`:active { transform: scale(0.95); }`).
+*   **Double Submission Prevention**: Added `:disabled { opacity: 0.5; cursor: not-allowed; }` style properties.
+
+---
+
+## 11. Centered Modal Layout
+
+Upgraded the application's floating dialog component from a bottom-sheet sheet panel (`alignItems: 'flex-end'`, `borderRadius: '20px 20px 0 0'`) to a centered modal card layout:
+*   Centered position using `alignItems: 'center'` and `justifyContent: 'center'`.
+*   Removed the top swipe handle bar.
+*   Applied uniform rounded corners (`borderRadius: 20`) on all sides.
+*   Introduced a padding buffer to prevent dialog content from bleeding off-screen on narrow mobile screens.

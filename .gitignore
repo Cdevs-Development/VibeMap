@@ -1,0 +1,33 @@
+# Environment files
+.env
+backend/.env 
+
+# Databases
+*.db
+vibemap.db
+
+# Virtual environments
+venv/
+backend/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/build/
+android/app/build/

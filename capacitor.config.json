@@ -1,0 +1,33 @@
+{
+  "appId": "ng.cdev.vibemap",
+  "appName": "VibeMap",
+  "webDir": "dist",
+  "overrideUserAgent": "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#080810",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#080810",
+      "overlaysWebView": false
+    },
+    "BackgroundGeolocation": {
+      "backgroundMessage": "VibeMap is tracking your location for safety.",
+      "backgroundTitle": "VibeMap Location Active",
+      "requestPermissions": true,
+      "stale": false,
+      "distanceFilter": 10
+    }
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

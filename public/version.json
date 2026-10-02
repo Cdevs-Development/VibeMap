@@ -1,0 +1,15 @@
+{
+  "version": "1.0.10",
+  "versionCode": 10,
+  "minVersion": "1.0.0",
+  "releaseDate": "2026-09-14",
+  "releaseName": "Location Accuracy & Stability Fix",
+  "changelog": [
+    "Fixed marker shuffling caused by dual location source race condition",
+    "Native GPS now runs exclusively on Android — web fallback only activates if native GPS fails",
+    "Backend location update route hardened with clean if-statement guards",
+    "Service worker cache refreshed to v6"
+  ],
+  "apkUrl": "/downloads/vibemap.apk",
+  "mandatory": false
+}
