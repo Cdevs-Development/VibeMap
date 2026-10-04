@@ -9,6 +9,8 @@ vibemap.db
 # Virtual environments
 venv/
 backend/venv/
+.venv/
+backend/.venv/
 
 # Python cache
 __pycache__/
