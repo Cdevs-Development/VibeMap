@@ -1,14 +1,14 @@
 {
-  "version": "1.0.10",
-  "versionCode": 10,
+  "version": "1.0.11",
+  "versionCode": 11,
   "minVersion": "1.0.0",
-  "releaseDate": "2026-09-14",
-  "releaseName": "Location Accuracy & Stability Fix",
+  "releaseDate": "2026-10-06",
+  "releaseName": "OEM Background Protection & Battery Optimization",
   "changelog": [
-    "Fixed marker shuffling caused by dual location source race condition",
-    "Native GPS now runs exclusively on Android — web fallback only activates if native GPS fails",
-    "Backend location update route hardened with clean if-statement guards",
-    "Service worker cache refreshed to v6"
+    "Added manufacturer-aware Background Protection onboarding for OEM devices (Samsung, Xiaomi, Tecno, Infinix, Oppo, Vivo, Huawei)",
+    "Native deep-linking to OEM autostart & battery management settings",
+    "Enhanced background tracking reliability across custom Android skins",
+    "Service worker cache refreshed to v7"
   ],
   "apkUrl": "/downloads/vibemap.apk",
   "mandatory": false

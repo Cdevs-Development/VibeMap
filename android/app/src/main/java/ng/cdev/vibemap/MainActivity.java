@@ -215,6 +215,63 @@ public class MainActivity extends BridgeActivity {
                 } catch (Exception ignored) {}
             });
         }
+
+        @JavascriptInterface
+        public String getDeviceManufacturer() {
+            return Build.MANUFACTURER != null ? Build.MANUFACTURER.toLowerCase() : "unknown";
+        }
+
+        @JavascriptInterface
+        public boolean isIgnoringBatteryOptimizations() {
+            try {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void openOEMBatterySettings() {
+            runOnUiThread(() -> {
+                String manufacturer = Build.MANUFACTURER != null ? Build.MANUFACTURER.toLowerCase() : "";
+                Intent intent = new Intent();
+                try {
+                    switch (manufacturer) {
+                        case "xiaomi":
+                            intent.setComponent(new android.content.ComponentName(
+                                "com.miui.securitycenter",
+                                "com.miui.permcenter.autostart.AutoStartManagementActivity"));
+                            break;
+                        case "huawei":
+                            intent.setComponent(new android.content.ComponentName(
+                                "com.huawei.systemmanager",
+                                "com.huawei.systemmanager.optimize.process.ProtectActivity"));
+                            break;
+                        case "oppo":
+                            intent.setComponent(new android.content.ComponentName(
+                                "com.coloros.safecenter",
+                                "com.coloros.safecenter.permission.startup.StartupAppListActivity"));
+                            break;
+                        case "vivo":
+                            intent.setComponent(new android.content.ComponentName(
+                                "com.vivo.permissionmanager",
+                                "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"));
+                            break;
+                        default:
+                            intent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                    }
+                    startActivity(intent);
+                } catch (Exception e) {
+                    try {
+                        Intent fallback = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        fallback.setData(Uri.parse("package:" + getPackageName()));
+                        startActivity(fallback);
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
     }
 
     private void launchFallbackGoogleSignIn() {

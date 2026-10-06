@@ -292,10 +292,10 @@ export default function PWAInstallPrompt() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>
-                      {downloadState === 'downloading' ? '📥 Downloading VibeMap.apk...' : downloadState === 'completed' ? '✅ Download Complete!' : '📦 VibeMap.apk (8.6 MB)'}
+                      {downloadState === 'downloading' ? '📥 Downloading VibeMap.apk...' : downloadState === 'completed' ? '✅ Download Complete!' : '📦 VibeMap.apk (9.5 MB)'}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 800, color: '#a78bfa' }}>
-                      {downloadState === 'downloading' ? `${downloadProgress}%` : downloadState === 'completed' ? '100%' : '8.6 MB'}
+                      {downloadState === 'downloading' ? `${downloadProgress}%` : downloadState === 'completed' ? '100%' : '9.5 MB'}
                     </span>
                   </div>
 

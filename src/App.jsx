@@ -22,6 +22,7 @@ import InteractiveGuide from './components/InteractiveGuide'
 import PWAInstallPrompt from './components/PWAInstallPrompt'
 import GlobalSOSAlertManager from './components/GlobalSOSAlertManager'
 import FloatingJourneyOverlay from './components/FloatingJourneyOverlay'
+import BackgroundProtectionModal from './components/BackgroundProtectionModal'
 
 function PrivateRoute({ children }) {
   const [status, setStatus] = useState('checking') // 'checking' | 'auth' | 'unauth' | 'slow_server'
@@ -257,6 +258,7 @@ function App() {
         <PWAInstallPrompt />
         <GlobalSOSAlertManager />
         <FloatingJourneyOverlay />
+        <BackgroundProtectionModal />
         <Routes>
           {/* Default redirect to active sos, map or login */}
           <Route path="/" element={<RootRoute />} />

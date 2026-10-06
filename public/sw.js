@@ -1,12 +1,12 @@
 /**
  * VibeMap Service Worker (sw.js)
- * Version: v6 — locationService race-condition fix (single source of truth)
+ * Version: v7 — OEM background protection modal & battery optimization deep-links
  */
 
-const SHELL_CACHE = 'vibemap-shell-v6';
-const MAP_TILES_CACHE = 'vibemap-map-tiles-v6';
-const FONTS_CACHE = 'vibemap-fonts-v6';
-const NOMINATIM_CACHE = 'vibemap-nominatim-v6';
+const SHELL_CACHE = 'vibemap-shell-v7';
+const MAP_TILES_CACHE = 'vibemap-map-tiles-v7';
+const FONTS_CACHE = 'vibemap-fonts-v7';
+const NOMINATIM_CACHE = 'vibemap-nominatim-v7';
 
 const ALL_CACHES = [SHELL_CACHE, MAP_TILES_CACHE, FONTS_CACHE, NOMINATIM_CACHE];
 
