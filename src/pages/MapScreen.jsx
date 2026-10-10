@@ -1518,9 +1518,9 @@ export default function MapScreen() {
   }
 
   const handleTabChange = (tab) => {
-    if (tab === 'map') navigate('/map')
+    if (tab === 'map') setActiveTab('map')
     if (tab === 'family') navigate('/family')
-    if (tab === 'vibes') navigate('/vibes')
+    if (tab === 'vibes') setActiveTab('vibes')
     if (tab === 'profile') navigate('/profile')
   }
 
@@ -1592,7 +1592,7 @@ export default function MapScreen() {
       }}>
 
         {/* REAL MAP */}
-        {activeTab === 'map' && (
+        {(activeTab === 'map' || activeTab === 'vibes') && (
           !webglAvailable ? (
             <WebGLFallback onRetry={() => window.location.reload()} />
           ) : (
