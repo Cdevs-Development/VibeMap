@@ -274,9 +274,29 @@ export default function MapScreen() {
           })
         }
       }, 500)
+    }
+
+    if (location.state?.selectedVibeId && Array.isArray(vibePins) && vibePins.length > 0) {
+      const targetPin = vibePins.find(p => String(p.id) === String(location.state.selectedVibeId))
+      if (targetPin) {
+        const meta = getPinMeta(targetPin)
+        const pinLng = Number(targetPin.lng ?? targetPin.longitude)
+        const pinLat = Number(targetPin.lat ?? targetPin.latitude)
+        setSelectedPin({
+          ...targetPin,
+          lng: pinLng,
+          lat: pinLat,
+          icon: meta.icon,
+          color: meta.color,
+          label: targetPin.note || meta.title
+        })
+      }
+    }
+
+    if (location.state?.flyTo || location.state?.selectedVibeId) {
       window.history.replaceState({}, '')
     }
-  }, [location.state])
+  }, [location.state, vibePins])
 
   const [activeTab, setActiveTab] = useState('map')
   const [webglAvailable] = useState(() => isWebGLSupported())
@@ -304,7 +324,11 @@ export default function MapScreen() {
     return null
   })
   const [selectedPin, setSelectedPin] = useState(null)
-  const [vibePins, setVibePins] = useState([])
+  const [vibePins, setVibePins] = useState(() => {
+    const cached = getCache('vibe_pins')
+    const list = Array.isArray(cached) ? cached : (Array.isArray(cached?.data) ? cached.data : [])
+    return list
+  })
   const [isVibePinsLoading, setIsVibePinsLoading] = useState(false)
   const [vibePinsError, setVibePinsError] = useState(null)
 
@@ -320,8 +344,8 @@ export default function MapScreen() {
     const map = e.target
     if (!map) return
     map.on('styleimagemissing', (ev) => {
-      const id = ev.id
-      if (id && !map.hasImage(id)) {
+      const id = ev.id || ''
+      if (!map.hasImage(id)) {
         try {
           map.addImage(id, {
             width: 1,
@@ -553,6 +577,7 @@ export default function MapScreen() {
           ? rawData
           : (rawData && Array.isArray(rawData.data) ? rawData.data : [])
         setVibePins(data)
+        setCache('vibe_pins', data)
       } catch (err) {
         console.error('Failed to load vibe pins:', err)
         setVibePinsError(err.response?.data?.detail || err.message || 'Failed to load vibe pins')
@@ -1071,6 +1096,15 @@ export default function MapScreen() {
 
   const handleMapClick = (e) => {
     if (!mapRef.current) return
+    const origTarget = e.originalEvent?.target
+    if (origTarget && (
+      origTarget.closest?.('.maplibregl-popup') ||
+      origTarget.closest?.('.maplibregl-marker') ||
+      origTarget.closest?.('[data-vibe-marker]') ||
+      origTarget.closest?.('[data-vibe-card]')
+    )) {
+      return
+    }
     try {
       const bbox = [
         [e.point.x - 14, e.point.y - 14],
@@ -1518,9 +1552,9 @@ export default function MapScreen() {
   }
 
   const handleTabChange = (tab) => {
-    if (tab === 'map') setActiveTab('map')
+    if (tab === 'map') navigate('/map')
     if (tab === 'family') navigate('/family')
-    if (tab === 'vibes') setActiveTab('vibes')
+    if (tab === 'vibes') navigate('/vibes')
     if (tab === 'profile') navigate('/profile')
   }
 
@@ -1592,7 +1626,7 @@ export default function MapScreen() {
       }}>
 
         {/* REAL MAP */}
-        {(activeTab === 'map' || activeTab === 'vibes') && (
+        {activeTab === 'map' && (
           !webglAvailable ? (
             <WebGLFallback onRetry={() => window.location.reload()} />
           ) : (
@@ -1706,36 +1740,79 @@ export default function MapScreen() {
             {/* VIBE PIN MARKERS */}
             {Array.isArray(vibePins) && vibePins.map(pin => {
               const meta = getPinMeta(pin)
+              const pinLng = Number(pin.lng ?? pin.longitude)
+              const pinLat = Number(pin.lat ?? pin.latitude)
+              if (isNaN(pinLng) || isNaN(pinLat)) return null
+              const isSelected = selectedPin && String(selectedPin.id) === String(pin.id)
+
               return (
                 <Marker
                   key={pin.id}
-                  longitude={pin.lng}
-                  latitude={pin.lat}
+                  longitude={pinLng}
+                  latitude={pinLat}
                   anchor="center"
+                  onClick={(e) => {
+                    if (e?.originalEvent) {
+                      e.originalEvent.stopPropagation?.()
+                    }
+                  }}
                 >
                   <div
-                    onClick={() => setSelectedPin({
-                      ...pin,
-                      icon: meta.icon,
-                      color: meta.color,
-                      label: pin.note || meta.title
-                    })}
+                    data-vibe-marker="true"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (e.nativeEvent) {
+                        e.nativeEvent.stopImmediatePropagation?.()
+                        e.nativeEvent.stopPropagation?.()
+                      }
+                      setSelectedPoi(null)
+                      setSelectedPin({
+                        ...pin,
+                        lng: pinLng,
+                        lat: pinLat,
+                        icon: meta.icon,
+                        color: meta.color,
+                        label: pin.note || meta.title
+                      })
+                      if (mapRef.current) {
+                        try {
+                          mapRef.current.easeTo({
+                            center: [pinLng, pinLat],
+                            offset: [0, 80],
+                            duration: 400
+                          })
+                        } catch (_) {}
+                      }
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation()
+                      if (e.nativeEvent) e.nativeEvent.stopPropagation?.()
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation()
+                      if (e.nativeEvent) e.nativeEvent.stopPropagation?.()
+                    }}
                     style={{
                       width: 48,
                       height: 48,
                       borderRadius: '50%',
-                      background: `${meta.color}22`,
+                      background: isSelected ? meta.color : `${meta.color}22`,
                       border: `2px solid ${meta.color}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: 20,
-                      boxShadow: `0 0 14px ${meta.color}88`,
+                      boxShadow: isSelected ? `0 0 22px ${meta.color}` : `0 0 14px ${meta.color}88`,
                       cursor: 'pointer',
-                      transition: 'transform 0.2s',
+                      transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                      transition: 'transform 0.2s, background 0.2s, box-shadow 0.2s',
+                      pointerEvents: 'auto',
                     }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.15)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.18)'}
+                    onMouseLeave={e => {
+                      if (!isSelected) e.currentTarget.style.transform = 'scale(1)'
+                    }}
+                    title={pin.note || meta.title}
                   >
                     {meta.icon}
                   </div>
@@ -1812,20 +1889,23 @@ export default function MapScreen() {
                 </Marker>
               )
             })}
-            {/* PIN POPUP */}
+            {/* PIN POPUP / VIBE CARD */}
             {selectedPin && (
               <Popup
-                longitude={selectedPin.lng}
-                latitude={selectedPin.lat}
+                longitude={Number(selectedPin.lng ?? selectedPin.longitude)}
+                latitude={Number(selectedPin.lat ?? selectedPin.latitude)}
                 anchor="bottom"
+                offset={[0, -28]}
                 onClose={() => setSelectedPin(null)}
                 closeOnClick={false}
                 closeButton={false}
                 style={{ zIndex: 100 }}
               >
                 <div
+                  data-vibe-card="true"
                   onClick={(e) => e.stopPropagation()}
                   onPointerDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   style={{
                     background: 'rgba(12,12,20,0.98)',
                     border: `1px solid ${selectedPin.color || 'rgba(139,92,246,0.5)'}`,
@@ -1933,6 +2013,8 @@ export default function MapScreen() {
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                     <button
                       type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                       onClick={async (e) => {
                         e.stopPropagation()
                         const pinId = selectedPin.id
@@ -1975,6 +2057,8 @@ export default function MapScreen() {
                     {Boolean(currentUserId && (String(selectedPin.user_id || selectedPin.creator_id || '') === String(currentUserId))) && (
                       <button
                         type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         onClick={async (e) => {
                           e.stopPropagation()
                           const pinId = selectedPin.id
@@ -2017,6 +2101,8 @@ export default function MapScreen() {
                   {/* Navigation Button */}
                   <button
                     type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
                       handleNavigate(selectedPin)

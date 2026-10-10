@@ -216,7 +216,7 @@ export default function VibeFeed() {
               <div 
                 key={vibe.id} 
                 className={styles.card}
-                onClick={() => navigate('/map', { state: { flyTo: { lat: vibe.lat, lng: vibe.lng } } })}
+                onClick={() => navigate('/map', { state: { flyTo: { lat: vibe.lat, lng: vibe.lng }, selectedVibeId: vibe.id } })}
                 style={{ cursor: 'pointer' }}
               >
                 <div className={styles.cardHeader}>

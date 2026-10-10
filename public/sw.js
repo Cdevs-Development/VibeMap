@@ -157,10 +157,9 @@ self.addEventListener('fetch', (event) => {
             cache.put(request, copy).catch(() => {});
           } catch (_) {}
         }
-        return fresh;
-      }).catch(() => cached);
+      }).catch(() => cached || new Response('', { status: 408 }));
 
-      return cached || fetchPromise;
+      return cached || fetchPromise || new Response('', { status: 408 });
     })
   );
 });

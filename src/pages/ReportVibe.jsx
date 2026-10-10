@@ -8,6 +8,7 @@ import {
   Send
 } from 'lucide-react'
 import { createVibePin } from '../services/api'
+import { getCache, setCache } from '../services/cacheService'
 import Map, { Marker } from 'react-map-gl/maplibre'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -166,9 +167,24 @@ export default function ReportVibeWizard() {
         lng: numLng,
         source: 'user'
       })
-      setPinResult(res.data)
+      const newPin = res.data
+      setPinResult(newPin)
       setSuccessMessage('Vibe reported successfully!')
-      setTimeout(() => navigate('/map'), 1200)
+
+      // Prepend to cached vibe pins immediately so it is instantly rendered on the map
+      try {
+        const cached = getCache('vibe_pins')
+        const currentList = Array.isArray(cached) ? cached : (Array.isArray(cached?.data) ? cached.data : [])
+        const updatedList = [newPin, ...currentList.filter(p => p.id !== newPin?.id)]
+        setCache('vibe_pins', updatedList)
+      } catch (_) {}
+
+      setTimeout(() => navigate('/map', {
+        state: {
+          flyTo: { lat: numLat, lng: numLng },
+          selectedVibeId: newPin?.id
+        }
+      }), 1000)
     } catch (err) {
       console.error('[ReportVibe] Submission error:', err)
       const detail = err?.response?.data?.detail
