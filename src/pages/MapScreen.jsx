@@ -262,6 +262,40 @@ export default function MapScreen() {
   const location = useLocation()
   const mapRef = useRef(null)
 
+  const [activeTab, setActiveTab] = useState('map')
+  const [webglAvailable] = useState(() => isWebGLSupported())
+  const [mapStyleUrl, setMapStyleUrl] = useState(() => getDarkMapStyle())
+  const [userLocation, setUserLocation] = useState(null)
+  const [viewState, setViewState] = useState({
+    longitude: 3.3792,
+    latitude: 6.5244,
+    zoom: 13,
+    pitch: 72,
+    bearing: 0
+  })
+  const [viewMode, setViewMode] = useState('street')
+  const [currentUserId, setCurrentUserId] = useState(() => {
+    const cached = getCache('current_user')
+    const uid = cached?.data?.id || cached?.id
+    if (uid) return String(uid)
+    try {
+      const token = localStorage.getItem('vibemap_token')
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        if (payload.sub || payload.user_id) return String(payload.sub || payload.user_id)
+      }
+    } catch (e) {}
+    return null
+  })
+  const [selectedPin, setSelectedPin] = useState(null)
+  const [vibePins, setVibePins] = useState(() => {
+    const cached = getCache('vibe_pins')
+    const list = Array.isArray(cached) ? cached : (Array.isArray(cached?.data) ? cached.data : [])
+    return list
+  })
+  const [isVibePinsLoading, setIsVibePinsLoading] = useState(false)
+  const [vibePinsError, setVibePinsError] = useState(null)
+
   useEffect(() => {
     if (location.state?.flyTo) {
       const { lng, lat } = location.state.flyTo
@@ -297,40 +331,6 @@ export default function MapScreen() {
       window.history.replaceState({}, '')
     }
   }, [location.state, vibePins])
-
-  const [activeTab, setActiveTab] = useState('map')
-  const [webglAvailable] = useState(() => isWebGLSupported())
-  const [mapStyleUrl, setMapStyleUrl] = useState(() => getDarkMapStyle())
-  const [userLocation, setUserLocation] = useState(null)
-  const [viewState, setViewState] = useState({
-    longitude: 3.3792,
-    latitude: 6.5244,
-    zoom: 13,
-    pitch: 72,
-    bearing: 0
-  })
-  const [viewMode, setViewMode] = useState('street')
-  const [currentUserId, setCurrentUserId] = useState(() => {
-    const cached = getCache('current_user')
-    const uid = cached?.data?.id || cached?.id
-    if (uid) return String(uid)
-    try {
-      const token = localStorage.getItem('vibemap_token')
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        if (payload.sub || payload.user_id) return String(payload.sub || payload.user_id)
-      }
-    } catch (e) {}
-    return null
-  })
-  const [selectedPin, setSelectedPin] = useState(null)
-  const [vibePins, setVibePins] = useState(() => {
-    const cached = getCache('vibe_pins')
-    const list = Array.isArray(cached) ? cached : (Array.isArray(cached?.data) ? cached.data : [])
-    return list
-  })
-  const [isVibePinsLoading, setIsVibePinsLoading] = useState(false)
-  const [vibePinsError, setVibePinsError] = useState(null)
 
   const handleMapError = (err) => {
     console.warn('[MapScreen] Map style or tile loading warning:', err)
